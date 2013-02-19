@@ -35,10 +35,11 @@ class CANHeader {
 
     private:
         int priorityID, arbitrationID, senderID;
-        
-        CANHeader() { }
     
     public:
+        // Main function
+        CANHeader() { }
+
         //// 29-bit frames
         // Methods for getting / setting priority, both integers
         int priority(void) { return priorityID; }
