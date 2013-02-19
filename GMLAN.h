@@ -16,6 +16,9 @@ started in what can sometimes seem a daunting world.
 Jason Gaunt, 18th Feb 2013
 */
 
+#include "GMLAN_29bit.h"
+// #include "GMLAN_11bit.h"
+
 #ifndef GMLAN_H
 #define GMLAN_H
 
