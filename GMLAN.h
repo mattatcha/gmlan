@@ -29,12 +29,24 @@ Jason Gaunt, 18th Feb 2013
 #define GMLAN_BAUD_HS 500000
 
 class CANHeader {
-    // Example header packet for Steering Wheel Switches:
-    // Hexadecimal:    0x10     0x0D     0x00     0x60
-    // Binary:       00010000 00001101 00000000 01100000
-    // Priority:        ---
-    // Arbitration:        -- -------- ---
-    // Sending ECU:                       ----- --------
+    /*
+    CANHeader was designed solely for 29-bit frames but supports 11-bit too by just setting the ArbID
+    
+    Example 29-bit header packet from Steering Wheel Switches:
+    
+    Hexadecimal:    0x10     0x0D     0x00     0x60
+    Binary:       00010000 00001101 00000000 01100000
+    Priority:        ---
+    Arbitration:        -- -------- ---
+    Sending ECU:                       ----- --------
+    
+    Example 11-bit header packet from Head Unit:
+    
+    Hexadecimal:    0x02     0x44
+    Binary:       00000010 01000100
+    Identifier:        --- --------
+    
+    */
 
     private:
         int priorityID, arbitrationID, senderID;
@@ -42,22 +54,24 @@ class CANHeader {
     public:
         // Main function
         CANHeader() { }
-
-        //// 29-bit frames
+        
         // Methods for getting / setting priority, both integers
         int priority(void) { return priorityID; }
         void priority(int _priority) { priorityID = _priority; }
+        
         // Method for getting / setting arbitration id aka arbid, both integers
         int arbitration(void) { return arbitrationID; }
         void arbitration(int _arbitration) { arbitrationID = _arbitration; }
+        
         // Method for getting / setting sender id, both integers
         int sender(void) { return senderID; }
         void sender(int _sender) { senderID = _sender; }
     
-        // Function to decode a header packet and store values in respective variables
+        // Function to decode either an 11-bit or 29-bit header packet and store values in respective variables
         void decode(int _header);
-        // Function to encode stored values and return header packet as int
-        int encode(void);
+        
+        // Function to encode stored values as 29-bit header and return header packet as int
+        int encode29bit(void);
 };
 
 #endif

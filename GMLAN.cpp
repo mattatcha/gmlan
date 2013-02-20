@@ -19,11 +19,18 @@ Jason Gaunt, 18th Feb 2013
 #include "GMLAN.h"
 
 void CANHeader::decode(int _header) {
-    priorityID = (_header >> 26) & 0x7;
-    arbitrationID = (_header >> 13) & 0x1FFF;
-    senderID = (_header >> 0)  & 0x1FFF;
+    if (_header < 0x800)
+    {
+        // 11-bit header
+        arbitrationID = _header;
+    } else {
+        // 29-bit header
+        priorityID = (_header >> 26) & 0x7;
+        arbitrationID = (_header >> 13) & 0x1FFF;
+        senderID = (_header >> 0) & 0x1FFF;
+    }
 }
-int CANHeader::encode(void) {
+int CANHeader::encode29bit(void) {
     long int buffer = 0;
     buffer = (buffer << 3) | 0x0; // 3 bit padding
     buffer = (buffer << 3) | priorityID;
