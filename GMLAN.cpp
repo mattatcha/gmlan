@@ -22,7 +22,7 @@ void CANHeader::decode(int _header) {
     if (_header < 0x800)
     {
         // 11-bit header
-        arbitrationID = _header;
+        arbitrationID = (_header >> 0) & 0x7FF;
     } else {
         // 29-bit header
         priorityID = (_header >> 26) & 0x7;
@@ -36,5 +36,11 @@ int CANHeader::encode29bit(void) {
     buffer = (buffer << 3) | priorityID;
     buffer = (buffer << 13) | arbitrationID;
     buffer = (buffer << 13) | senderID;
+    return buffer;
+}
+int CANHeader::encode11bit(void) {
+    short int buffer = 0;
+    buffer = (buffer << 5) | 0x0; // 5 bit padding
+    buffer = (buffer << 11) | arbitrationID;
     return buffer;
 }

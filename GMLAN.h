@@ -17,7 +17,7 @@ Jason Gaunt, 18th Feb 2013
 */
 
 #include "GMLAN_29bit.h"
-// #include "GMLAN_11bit.h"
+#include "GMLAN_11bit.h"
 
 #ifndef GMLAN_H
 #define GMLAN_H
@@ -72,6 +72,9 @@ class CANHeader {
         
         // Function to encode stored values as 29-bit header and return header packet as int
         int encode29bit(void);
+
+        // Function to encode stored values as 11-bit header and return header packet as int
+        int encode11bit(void);
 };
 
 #endif
