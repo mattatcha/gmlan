@@ -16,8 +16,10 @@ started in what can sometimes seem a daunting world.
 Jason Gaunt, 18th Feb 2013
 */
 
+#include "mbed.h"
 #include "GMLAN_29bit.h"
 #include "GMLAN_11bit.h"
+#include <vector>
 
 #ifndef GMLAN_H
 #define GMLAN_H
@@ -75,6 +77,23 @@ class CANHeader {
 
         // Function to encode stored values as 11-bit header and return header packet as int
         int encode11bit(void);
+};
+
+class GMLAN_Message {
+    /*
+    Wrapper for CANMessage that automatically parses settings
+    */
+    private:
+        vector<char> data;
+        int priority, arbitration, sender;
+    
+    public:
+        // Main function
+        GMLAN_Message(int _priority = -1, int _arbitration = -1, int _sender = -1,
+        int _b0 = -1, int _b1 = -1, int _b2 = -1, int _b3 = -1, int _b4 = -1, int _b5 = -1, int _b6 = -1, int _b7 = -1);
+    
+        // Return result
+        CANMessage generate(void);
 };
 
 #endif

@@ -16,7 +16,9 @@ started in what can sometimes seem a daunting world.
 Jason Gaunt, 18th Feb 2013
 */
 
+#include "mbed.h"
 #include "GMLAN.h"
+#include <vector>
 
 void CANHeader::decode(int _header) {
     if (_header < 0x800)
@@ -43,4 +45,34 @@ int CANHeader::encode11bit(void) {
     buffer = (buffer << 5) | 0x0; // 5 bit padding
     buffer = (buffer << 11) | arbitrationID;
     return buffer;
+}
+
+    
+GMLAN_Message::GMLAN_Message(int _priority, int _arbitration, int _sender,
+int _b0, int _b1, int _b2, int _b3, int _b4, int _b5, int _b6, int _b7) {
+    priority = _priority;
+    arbitration = _arbitration;
+    sender = _sender;
+    if (_b0 != -1) data.push_back(_b0);
+    if (_b1 != -1) data.push_back(_b1);
+    if (_b2 != -1) data.push_back(_b2);
+    if (_b3 != -1) data.push_back(_b3);
+    if (_b4 != -1) data.push_back(_b4);
+    if (_b5 != -1) data.push_back(_b5);
+    if (_b6 != -1) data.push_back(_b6);
+    if (_b7 != -1) data.push_back(_b7);
+}
+CANMessage GMLAN_Message::generate(void) {
+    CANHeader hdr;
+    hdr.priority(priority);
+    hdr.arbitration(arbitration);
+    hdr.sender(sender);
+    
+    char datatochars [data.size()];
+    for (int i = 0; i < data.size(); i++) datatochars[i] = data[i];
+    
+    if (sender > 0x0)
+        return CANMessage(hdr.encode29bit(), datatochars, data.size(), CANData, CANExtended);
+    else
+        return CANMessage(arbitration, datatochars, data.size(), CANData, CANStandard);
 }
