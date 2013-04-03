@@ -76,3 +76,97 @@ CANMessage GMLAN_Message::generate(void) {
     else
         return CANMessage(arbitration, datatochars, data.size(), CANData, CANStandard);
 }
+
+GMLAN_11Bit_Request::GMLAN_11Bit_Request(int _id, vector<char> _request) {
+    id = _id;
+    request_data = _request;
+    tx_bytes = rx_bytes = 0;
+    tx_frame_counter = rx_frame_counter = 1;
+    const char _fp [8] = {0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA};
+    memcpy(frame_padding, _fp, 8);
+    request_state = GMLAN_STATE_READY_TO_SEND;
+}
+CANMessage GMLAN_11Bit_Request::getNextFrame(void) {
+    char datatochars [8];
+    memcpy(datatochars, frame_padding, 8);
+
+    if (request_data.size() < 8) {
+        // Unsegmented frame
+        datatochars[0] = (GMLAN_PCI_UNSEGMENTED << 4) | (request_data.size() & 0xF);
+        for (int i = 0; i < request_data.size(); i++) datatochars[i+1] = request_data[i];
+        request_state = GMLAN_STATE_AWAITING_REPLY;
+    } else if (tx_bytes == 0) {
+        // First segmented frame
+        datatochars[0] = (GMLAN_PCI_SEGMENTED << 4) | ((request_data.size() >> 8) & 0xF);
+        datatochars[1] = request_data.size() & 0xFF;
+        for (int i = 0; i < 6; i++) {
+            datatochars[i+2] = request_data[i];
+            tx_bytes++;
+        }
+        request_state = GMLAN_STATE_AWAITING_FC;
+    } else if (tx_bytes <= request_data.size()) {
+        // Additional segmented frame with data left to transmit
+        datatochars[0] = (GMLAN_PCI_ADDITIONAL << 4) | (tx_frame_counter & 0xF);
+        int old_tx_bytes = tx_bytes;
+        for (int i = old_tx_bytes; i < old_tx_bytes + 7; i++) {
+            if (i >= request_data.size()) break;
+            datatochars[(i+1)-old_tx_bytes] = request_data[i];
+            tx_bytes++;
+        }
+        tx_frame_counter++;
+        if (tx_frame_counter > 0xF) tx_frame_counter = 0x0;
+    }
+    
+    if (tx_bytes >= request_data.size()) request_state = GMLAN_STATE_AWAITING_REPLY;
+    
+    return CANMessage(id, datatochars, 8, CANData, CANStandard);
+}
+CANMessage GMLAN_11Bit_Request::getFlowControl(void) {
+    request_state = GMLAN_STATE_AWAITING_REPLY;
+    GMLAN_Message buffer = GMLAN_Message(0x0, id, 0x0, 0x30, 0x0, 0x0);
+    return buffer.generate();
+}
+void GMLAN_11Bit_Request::processFrame(CANMessage msg) {
+    if (((msg.id & 0xFF) == (id & 0xFF)) && (request_state == GMLAN_STATE_AWAITING_REPLY)) {
+        // Only handle requests we've instigated
+        char datatochars [8];
+        memcpy(datatochars, msg.data, 8);
+        
+        if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_UNSEGMENTED) {
+            // Unsegmented frame
+            rx_bytes = datatochars[0] & 0xF;
+            if (datatochars[1] == GMLAN_SID_ERROR) {
+                // Error frame
+                if ((rx_bytes == 3) && (datatochars[3] == 0x78)) return; // "Still processing request" message, ignore this one
+                request_state = GMLAN_STATE_ERROR;
+            } else request_state = GMLAN_STATE_COMPLETED;
+            for (int i = 1; i < (rx_bytes+1); i++) response_data.push_back(datatochars[i]);
+        } else if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_SEGMENTED) {
+            // First segmented frame
+            rx_bytes = datatochars[0] & 0xF;
+            rx_bytes = (rx_bytes << 8) | datatochars[1];
+            for (int i = 2; i < 8; i++) {
+                if ((i - 2) >= rx_bytes) {
+                    // Safety net for incorrectly formatted packets
+                    request_state = GMLAN_STATE_COMPLETED;
+                    return;
+                }
+                response_data.push_back(datatochars[i]);
+            }
+            request_state = GMLAN_STATE_SEND_FC;
+        } else if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_ADDITIONAL) {
+            // Additional segmented frame
+            // TODO check for frame order
+            for (int i = 1; i < 8; i++) {
+                if (response_data.size() + 1 >= rx_bytes) {
+                    request_state = GMLAN_STATE_COMPLETED;
+                    return;
+                }
+                response_data.push_back(datatochars[i]);
+            }
+        } else if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_FLOW_CONTROL) {
+            // Flow control frame
+            request_state = GMLAN_STATE_SEND_DATA;
+        }
+    }
+}

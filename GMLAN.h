@@ -96,4 +96,38 @@ class GMLAN_Message {
         CANMessage generate(void);
 };
 
+class GMLAN_11Bit_Request {
+    /*
+    Class to allow easier handling of sending and receiving 11-bit messages
+    */
+    private:
+        vector<char> request_data, response_data;
+        int id, request_state;
+        int tx_frame_counter, tx_bytes;
+        int rx_frame_counter, rx_bytes;
+        
+        char frame_padding [8];
+    
+    public:
+        // (Main function) Create message and send it
+        GMLAN_11Bit_Request(int _id, vector<char> _request);
+        
+        // Process each frame to transmit and flow control frame if needed
+        CANMessage getNextFrame(void);
+        CANMessage getFlowControl(void);
+        // Process each received frame
+        void processFrame(CANMessage msg);
+        
+        // Handle starting and flow control
+        void start(void) { request_state = GMLAN_STATE_SEND_DATA; }
+        void continueFlow(void) { request_state = GMLAN_STATE_SEND_DATA; }
+        
+        // Return request_state to confirm status
+        int getState(void) { return request_state; }
+        // Return ID
+        int getID(void) { return id; }
+        // Return response
+        vector<char> getResponse(void) { return response_data; }
+};
+
 #endif
