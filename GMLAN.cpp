@@ -77,9 +77,10 @@ CANMessage GMLAN_Message::generate(void) {
         return CANMessage(arbitration, datatochars, data.size(), CANData, CANStandard);
 }
 
-GMLAN_11Bit_Request::GMLAN_11Bit_Request(int _id, vector<char> _request) {
+GMLAN_11Bit_Request::GMLAN_11Bit_Request(int _id, vector<char> _request, bool _await_response) {
     id = _id;
     request_data = _request;
+    await_response = _await_response;
     tx_bytes = rx_bytes = 0;
     tx_frame_counter = rx_frame_counter = 1;
     const char _fp [8] = {0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA};
@@ -117,7 +118,10 @@ CANMessage GMLAN_11Bit_Request::getNextFrame(void) {
         if (tx_frame_counter > 0xF) tx_frame_counter = 0x0;
     }
     
-    if (tx_bytes >= request_data.size()) request_state = GMLAN_STATE_AWAITING_REPLY;
+    if (tx_bytes >= request_data.size()) {
+        if (await_response == true) request_state = GMLAN_STATE_AWAITING_REPLY;
+        else request_state = GMLAN_STATE_COMPLETED;
+    }
     
     return CANMessage(id, datatochars, 8, CANData, CANStandard);
 }
@@ -134,7 +138,7 @@ void GMLAN_11Bit_Request::processFrame(CANMessage msg) {
         
         if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_UNSEGMENTED) {
             // Unsegmented frame
-            rx_bytes = datatochars[0] & 0xF;
+            rx_bytes = (datatochars[0] & 0xF);
             if (datatochars[1] == GMLAN_SID_ERROR) {
                 // Error frame
                 if ((rx_bytes == 3) && (datatochars[3] == 0x78)) return; // "Still processing request" message, ignore this one
@@ -143,7 +147,7 @@ void GMLAN_11Bit_Request::processFrame(CANMessage msg) {
             for (int i = 1; i < (rx_bytes+1); i++) response_data.push_back(datatochars[i]);
         } else if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_SEGMENTED) {
             // First segmented frame
-            rx_bytes = datatochars[0] & 0xF;
+            rx_bytes = (datatochars[0] & 0xF);
             rx_bytes = (rx_bytes << 8) | datatochars[1];
             for (int i = 2; i < 8; i++) {
                 if ((i - 2) >= rx_bytes) {
@@ -158,11 +162,15 @@ void GMLAN_11Bit_Request::processFrame(CANMessage msg) {
             // Additional segmented frame
             // TODO check for frame order
             for (int i = 1; i < 8; i++) {
-                if (response_data.size() + 1 >= rx_bytes) {
+                if (response_data.size() >= rx_bytes) {
                     request_state = GMLAN_STATE_COMPLETED;
                     return;
                 }
                 response_data.push_back(datatochars[i]);
+            }
+            if (response_data.size() >= rx_bytes) {
+                request_state = GMLAN_STATE_COMPLETED;
+                return;
             }
         } else if (((datatochars[0] >> 4) & 0xF) == GMLAN_PCI_FLOW_CONTROL) {
             // Flow control frame

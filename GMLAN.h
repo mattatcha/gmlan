@@ -105,12 +105,12 @@ class GMLAN_11Bit_Request {
         int id, request_state;
         int tx_frame_counter, tx_bytes;
         int rx_frame_counter, rx_bytes;
-        
+        bool await_response;
         char frame_padding [8];
     
     public:
         // (Main function) Create message and send it
-        GMLAN_11Bit_Request(int _id, vector<char> _request);
+        GMLAN_11Bit_Request(int _id, vector<char> _request, bool _await_response = true);
         
         // Process each frame to transmit and flow control frame if needed
         CANMessage getNextFrame(void);
@@ -126,6 +126,8 @@ class GMLAN_11Bit_Request {
         int getState(void) { return request_state; }
         // Return ID
         int getID(void) { return id; }
+        // Return rx_bytes
+        int getRXcount(void) { return rx_bytes; }
         // Return response
         vector<char> getResponse(void) { return response_data; }
 };
