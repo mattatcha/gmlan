@@ -148,7 +148,9 @@ CANMessage GMLAN_11Bit_Request::getFlowControl(void) {
     return buffer.generate();
 }
 void GMLAN_11Bit_Request::processFrame(CANMessage msg) {
-    if (((msg.id & 0xFF) == (id & 0xFF)) && (request_state == GMLAN_STATE_AWAITING_REPLY)) {
+    if (((msg.id & 0xFF) == (id & 0xFF)) && 
+        ((request_state == GMLAN_STATE_AWAITING_REPLY) || (request_state == GMLAN_STATE_AWAITING_FC))
+    ) {
         // Only handle requests we've instigated
         char datatochars [8];
         memcpy(datatochars, msg.data, 8);
